@@ -39,10 +39,13 @@ int main(int argc, char** argv)
 
   Glib::RefPtr<Gst::Element> filesrc = Gst::ElementFactory::create_element("filesrc");
   Glib::RefPtr<Gst::Element> filesink = Gst::ElementFactory::create_element("filesink");
+  Glib::RefPtr<Gst::Element> demux = Gst::ElementFactory::create_element("matroskademux");
+  Glib::RefPtr<Gst::Element> mux = Gst::ElementFactory::create_element("webmmux");
+  Glib::RefPtr<Gst::Caps> caps = Gst::Caps::create_simple("video/x-vp9");
 
-  if(!filesrc || !filesink)
+  if(!filesrc || !filesink || !demux || !mux)
   {
-    std::cerr << "The FileSrc or FileSink element could not be created." << std::endl;
+    std::cerr << "A pipeline element could not be created." << std::endl;
     return EXIT_FAILURE;
   }
 
@@ -55,11 +58,18 @@ int main(int argc, char** argv)
   Glib::RefPtr<Gst::Bus> bus = pipeline->get_bus();
   bus->add_watch(sigc::ptr_fun(&on_bus_message));
 
-  pipeline->add(filesrc)->add(filesink);
+  pipeline->add(filesrc)->add(demux)->add(mux)->add(filesink);
 
   std::cout << "Setting to PLAYING." << std::endl;
   pipeline->set_state(Gst::STATE_PLAYING);
-  filesrc->link(filesink);
+  filesrc->link(demux);
+  demux->signal_pad_added().connect([demux, mux, caps] (const Glib::RefPtr<Gst::Pad>& pad) {
+		  std::cout << "New pad added to " << demux->get_name() << std::endl;
+		  std::cout << "Pad name: " << pad->get_name() << std::endl;
+
+		  demux->link(mux, caps);
+  });
+  mux->link(filesink);
   std::cout << "Running." << std::endl;
   mainloop->run();
 
