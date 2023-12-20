@@ -1,0 +1,3 @@
+[submodule "CMake-Modules"]
+	path = CMake-Modules
+	url = https://github.com/kotaweav/CMake-Modules.git
