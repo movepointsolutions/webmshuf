@@ -1,4 +1,5 @@
 *.webm
+*.swp
 CMakeCache.txt
 CMakeFiles/
 Makefile
