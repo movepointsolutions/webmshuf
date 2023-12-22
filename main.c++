@@ -72,16 +72,20 @@ bool on_bus_message(const Glib::RefPtr<Gst::Bus>& /* bus */,
   return true;
 }
 
-static int n_probes = 0;
 std::vector<Glib::RefPtr<Gst::Buffer>> buffers;
+std::vector<Glib::RefPtr<Gst::Event>> events;
 
-Gst::PadProbeReturn der_probe(const Glib::RefPtr<Gst::Pad> &pad, const Gst::PadProbeInfo &probe_info)
+Gst::PadProbeReturn buffer_probe(const Glib::RefPtr<Gst::Pad> &pad, const Gst::PadProbeInfo &probe_info)
 {
-	n_probes++;
 	Glib::RefPtr<Gst::Buffer> buf = probe_info.get_buffer();
-	//std::cout << "DTS: " << buf->get_dts() << std::endl;
-	//std::cout << "PTS: " << buf->get_pts() << std::endl;
 	buffers.push_back(buf->copy());
+	return Gst::PAD_PROBE_OK;
+}
+
+Gst::PadProbeReturn event_probe(const Glib::RefPtr<Gst::Pad> &pad, const Gst::PadProbeInfo &probe_info)
+{
+	Glib::RefPtr<Gst::Event> event = probe_info.get_event();
+	events.push_back(event->copy());
 	return Gst::PAD_PROBE_OK;
 }
 
@@ -116,7 +120,8 @@ int collect_buffers(const char *filename)
   demux->signal_pad_added().connect([demux, mux, caps] (const Glib::RefPtr<Gst::Pad>& pad) {
 		  std::cout << "New pad added to " << demux->get_name() << std::endl;
 		  std::cout << "Pad name: " << pad->get_name() << std::endl;
-		  pad->add_probe(Gst::PAD_PROBE_TYPE_BUFFER, sigc::ptr_fun(der_probe));
+		  pad->add_probe(Gst::PAD_PROBE_TYPE_BUFFER, sigc::ptr_fun(buffer_probe));
+		  pad->add_probe(Gst::PAD_PROBE_TYPE_EVENT_DOWNSTREAM, sigc::ptr_fun(event_probe));
 
 		  demux->link(mux);
 		  //demux->link(mux, caps);
@@ -128,6 +133,7 @@ int collect_buffers(const char *filename)
   mainloop->run();
 
   std::cout << "Buffers: " << buffers.size() << std::endl;
+  std::cout << "Events: " << events.size() << std::endl;
   std::cout << "Returned. Setting state to NULL." << std::endl;
   pipeline->set_state(Gst::STATE_NULL);
   return 0;
@@ -166,6 +172,9 @@ int write_file(const char *filename)
 	  std::cout << "New pad added to " << appsrc->get_name() << std::endl;
 	  std::cout << "Pad name: " << pad->get_name() << std::endl;
 	  print_caps(pad->get_current_caps()->gobj(), "PAD|");
+	  for (auto e : events) {
+	  	pad->send_event(e);
+	}
   });
   mux->signal_pad_added().connect([mux, filesink] (const Glib::RefPtr<Gst::Pad>& pad) {
 	  std::cout << "New pad added to " << mux->get_name() << std::endl;
