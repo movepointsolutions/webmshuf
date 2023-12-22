@@ -13,6 +13,6 @@ pkg_search_module(GSTREAMERMM REQUIRED gstreamermm-1.0)
 
 #include (CTest)
 #enable_testing()
-include_directories(webmshuf ${GSTREAMERMM_INCLUDE_DIRS})
+include_directories(${GSTREAMERMM_INCLUDE_DIRS})
 add_executable (webmshuf ${SOURCES})
 target_link_libraries (webmshuf PRIVATE ${GSTREAMERMM_LIBRARIES})
